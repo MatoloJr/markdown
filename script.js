@@ -259,7 +259,7 @@
   setTheme('github');
 
   // Pre-load a sample document for instant demonstration
-  const SAMPLE = `# MDPreview Markdown Previewer
+  const SAMPLE = `# Markdown, Preview your .md files
 
 Upload any \`.md\` file or start typing. Switch between **GitHub README** and **Claude** render styles.
 
