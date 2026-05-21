@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MDPreview Markdown Renderer</title>
+
+  <!-- Marked.js GFM markdown parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+
+  <!-- Highlight.js syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-theme-light" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme-dark" disabled />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+ <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="22" height="22" rx="5" fill="#d97706"/>
+      <path d="M5 7h12M5 11h8M5 15h10" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    MD<span class="logo-dot">Preview</span>
+  </div>
+
+  <div class="header-sep"></div>
+
+  <!-- Layout toggle -->
+  <div class="toolbar-group" role="group" aria-label="Layout">
+    <button class="tb-btn active" id="btn-split" onclick="setLayout('split')" title="Split view">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="5" height="12" rx="1"/><rect x="8" y="1" width="5" height="12" rx="1"/></svg>
+      <span>Split</span>
+    </button>
+    <button class="tb-btn" id="btn-editor-only" onclick="setLayout('editor-only')" title="Editor only">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="12" height="12" rx="1"/><path d="M4 5l2 2-2 2M8 9h2"/></svg>
+      <span>Editor</span>
+    </button>
+    <button class="tb-btn" id="btn-preview-only" onclick="setLayout('preview-only')" title="Preview only">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="12" height="12" rx="1"/><path d="M4 5h6M4 8h4"/></svg>
+      <span>Preview</span>
+    </button>
+  </div>
+
+  <!-- Theme toggle -->
+  <div class="toolbar-group" role="group" aria-label="Render theme">
+    <button class="tb-btn active" id="btn-gh" onclick="setTheme('github')" title="GitHub README style">
+      <svg viewBox="0 0 14 14" fill="currentColor"><path d="M7 .5C3.41.5.5 3.41.5 7c0 2.88 1.87 5.33 4.47 6.19.33.06.45-.14.45-.31v-1.09c-1.83.4-2.22-.88-2.22-.88-.3-.76-.73-.96-.73-.96-.6-.4.04-.4.04-.4.66.05 1.01.68 1.01.68.59 1 1.54.71 1.92.54.06-.42.23-.71.42-.87-1.46-.17-3-.73-3-3.23 0-.71.25-1.3.68-1.75-.07-.16-.29-.83.06-1.73 0 0 .55-.18 1.8.67A6.3 6.3 0 017 3.5c.56 0 1.12.08 1.65.22 1.25-.85 1.79-.67 1.79-.67.36.9.14 1.57.07 1.73.42.45.67 1.04.67 1.75 0 2.51-1.54 3.06-3 3.23.24.2.44.6.44 1.2v1.79c0 .17.12.37.45.31A6.51 6.51 0 0013.5 7C13.5 3.41 10.59.5 7 .5z"/></svg>
+      <span>GitHub</span>
+    </button>
+    <button class="tb-btn" id="btn-cl" onclick="setTheme('claude')" title="Claude style">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1.5l1.2 3.7h3.8l-3.1 2.2 1.2 3.7L7 9l-3.1 2.1 1.2-3.7L2 5.2h3.8z"/></svg>
+      <span>Claude</span>
+    </button>
+  </div>
+
+  <div style="width:8px"></div>
+
+  <!-- Actions -->
+  <button class="action-btn primary" onclick="document.getElementById('file-input').click()">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 9V2M4 5L7 2l3 3"/><path d="M2 10v1a1 1 0 001 1h8a1 1 0 001-1v-1"/></svg>
+    Upload .md
+  </button>
+  <input type="file" id="file-input" accept=".md,.markdown,.txt" />
+
+  <button class="action-btn" id="copy-btn" onclick="copyHTML()" title="Copy rendered HTML">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="4" width="8" height="9" rx="1"/><path d="M2 10V2a1 1 0 011-1h8"/></svg>
+    Copy HTML
+  </button>
+
+  <button class="action-btn" onclick="clearEditor()" title="Clear and start fresh">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 3l8 8M11 3L3 11"/></svg>
+    Clear
+  </button>
+</header>
+
+<!-- Workspace ─────────────────────────────────────── -->
+<main class="workspace" id="workspace">
+
+  <!-- Editor pane -->
+  <section class="editor-pane" id="editor-pane" aria-label="Markdown editor">
+    <div class="pane-header">
+      <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="11" height="11" rx="1"/><path d="M3 4.5l2 2-2 2M7 8.5h3"/></svg>
+      <span class="pane-title">Editor</span>
+      <span class="pane-filename" id="filename-display">untitled.md</span>
+      <div class="pane-actions">
+        <button class="pane-icon-btn" onclick="formatSelection('bold')" title="Bold">
+          <svg viewBox="0 0 13 13" fill="currentColor"><path d="M3 2h4a2.5 2.5 0 010 5H3V2zm0 5h4.5a2.5 2.5 0 010 5H3V7z"/></svg>
+        </button>
+        <button class="pane-icon-btn" onclick="formatSelection('italic')" title="Italic">
+          <svg viewBox="0 0 13 13" fill="currentColor"><path d="M5 2h4l-.5 1.5H7L5.5 9.5H7L6.5 11h-4l.5-1.5h1.5L6 3.5H4.5z"/></svg>
+        </button>
+        <button class="pane-icon-btn" onclick="formatSelection('code')" title="Inline code">
+          <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 4L2 6.5 4 9M9 4l2 2.5L9 9"/></svg>
+        </button>
+        <button class="pane-icon-btn" onclick="wrapTable()" title="Insert table">
+          <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1" y="1" width="11" height="11" rx="1"/><path d="M1 4.5h11M4.5 4.5v7.5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Drop zone (initial state) -->
+    <div class="drop-zone" id="drop-zone" role="button" tabindex="0"
+         aria-label="Click or drop a .md file here"
+         onclick="document.getElementById('file-input').click()">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 15V3M9 6l3-3 3 3M8 12H4a1 1 0 00-1 1v6a1 1 0 001 1h16a1 1 0 001-1v-6a1 1 0 00-1-1h-4"/>
+        </svg>
+      </div>
+      <p class="drop-label"><strong>Drop your .md file here</strong><br>or click to browse</p>
+      <div class="or-divider">or</div>
+      <p class="drop-hint">start typing below to edit directly</p>
+      <button class="action-btn" style="margin-top:4px" onclick="event.stopPropagation(); showEditorDirect()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 11L8 2l4 7"/><path d="M4.5 7h5"/></svg>
+        Start from scratch
+      </button>
+    </div>
+
+    <!-- Textarea (shown after file load or typing) -->
+    <div class="editor-wrap" id="editor-wrap">
+      <textarea id="editor" spellcheck="false" autocorrect="off" autocapitalize="off"
+        placeholder="# My Document&#10;&#10;Start writing markdown..."></textarea>
+    </div>
+
+    <!-- Editor status bar -->
+    <div class="editor-statusbar" id="editor-statusbar" style="display:none">
+      <span class="statusbar-item">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 3h8M2 6h5M2 9h6"/></svg>
+        <span id="stat-lines">0 lines</span>
+      </span>
+      <span class="statusbar-item">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 6h10M6 1v10"/></svg>
+        <span id="stat-words">0 words</span>
+      </span>
+      <span class="statusbar-item">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 3l2 2-2 2M7 7h2"/></svg>
+        <span id="stat-chars">0 chars</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- Drag resizer -->
+  <div class="resizer" id="resizer" title="Drag to resize"></div>
+
+  <!-- Preview pane -->
+  <section class="preview-pane" id="preview-pane" aria-label="Rendered preview">
+    <div class="pane-header">
+      <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="6.5" cy="6.5" r="5.5"/><circle cx="6.5" cy="6.5" r="2"/></svg>
+      <span class="pane-title">Preview</span>
+      <span class="theme-badge badge-gh" id="theme-badge">
+        <svg viewBox="0 0 14 14" fill="currentColor"><path d="M7 .5C3.41.5.5 3.41.5 7c0 2.88 1.87 5.33 4.47 6.19.33.06.45-.14.45-.31v-1.09c-1.83.4-2.22-.88-2.22-.88-.3-.76-.73-.96-.73-.96-.6-.4.04-.4.04-.4.66.05 1.01.68 1.01.68.59 1 1.54.71 1.92.54.06-.42.23-.71.42-.87-1.46-.17-3-.73-3-3.23 0-.71.25-1.3.68-1.75-.07-.16-.29-.83.06-1.73 0 0 .55-.18 1.8.67A6.3 6.3 0 017 3.5c.56 0 1.12.08 1.65.22 1.25-.85 1.79-.67 1.79-.67.36.9.14 1.57.07 1.73.42.45.67 1.04.67 1.75 0 2.51-1.54 3.06-3 3.23.24.2.44.6.44 1.2v1.79c0 .17.12.37.45.31A6.51 6.51 0 0013.5 7C13.5 3.41 10.59.5 7 .5z"/></svg>
+        GitHub README
+      </span>
+    </div>
+
+    <div class="preview-scroll" id="preview-scroll">
+      <!-- Empty state -->
+      <div class="preview-empty" id="preview-empty">
+        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="6" y="3" width="24" height="30" rx="2"/>
+          <path d="M11 10h14M11 15h10M11 20h12"/>
+        </svg>
+        <p>Your rendered document will appear here</p>
+      </div>
+
+      <!-- Rendered document -->
+      <div class="preview-doc theme-github" id="preview-doc" style="display:none"></div>
+    </div>
+
+    <div class="preview-statusbar">
+      <span id="preview-stat-words">—</span>
+      <span>·</span>
+      <span id="preview-stat-headings">—</span>
+      <span>·</span>
+      <span id="preview-stat-links">—</span>
+      <div class="spacer"></div>
+      <span id="preview-stat-theme" style="color: var(--text-tertiary)">GitHub README</span>
+    </div>
+  </section>
+
+</main>
+
+<script src="script.js"></script>
+
+</body>
+</html>
