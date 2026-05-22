@@ -1,4 +1,4 @@
-/* ─── Reset & Base ─────────────────────────────────────── */
+/* Reset & Base */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -6,7 +6,7 @@
   --font-mono:  "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-serif: Georgia, "Times New Roman", serif;
 
-  /* App shell — dark chrome */
+  /* App shell dark chrome */
   --bg-app:          #111110;
   --bg-surface:      #1a1a18;
   --bg-raised:       #222220;
@@ -62,7 +62,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ─── Header ─────────────────────────────────────────────── */
+/* Header */
 .header {
   display: flex;
   align-items: center;
@@ -163,7 +163,7 @@ body {
 
 #file-input { display: none; }
 
-/* ─── Mobile tab bar ──────────────────────────────────────── */
+/* Mobile tab bar */
 .mobile-tabs {
   display: none;
   height: var(--mob-tabs-h);
@@ -196,7 +196,7 @@ body {
   font-weight: 500;
 }
 
-/* ─── Workspace ───────────────────────────────────────────── */
+/* Workspace */
 .workspace {
   flex: 1;
   display: flex;
@@ -204,7 +204,7 @@ body {
   min-height: 0;
 }
 
-/* ─── Pane shared ─────────────────────────────────────────── */
+/* Pane shared */
 .pane-header {
   display: flex;
   align-items: center;
@@ -252,7 +252,7 @@ body {
 .pane-icon-btn svg { width: 12px; height: 12px; }
 .pane-icon-btn:hover { background: var(--bg-raised); color: var(--text-primary); }
 
-/* ─── Editor pane ─────────────────────────────────────────── */
+/* Editor pane */
 .editor-pane {
   display: flex;
   flex-direction: column;
@@ -385,7 +385,7 @@ body {
 }
 .statusbar-item svg { width: 10px; height: 10px; }
 
-/* ─── Resizer ─────────────────────────────────────────────── */
+/* Resizer */
 .resizer {
   width: 4px;
   flex-shrink: 0;
@@ -396,7 +396,7 @@ body {
 .resizer:hover,
 .resizer.dragging { background: var(--accent); }
 
-/* ─── Preview pane ────────────────────────────────────────── */
+/* Preview pane */
 .preview-pane {
   display: flex;
   flex-direction: column;
@@ -497,7 +497,7 @@ body {
 .stat-sep { opacity: 0.4; }
 #preview-stat-theme { color: var(--text-tertiary); }
 
-/* ─── Render Themes ───────────────────────────────────────── */
+/* Render Themes */
 
 /* GitHub */
 .theme-github {
@@ -622,9 +622,9 @@ body {
 .theme-claude .hljs  { background: var(--cl-code-bg) !important; color: var(--cl-text) !important; }
 
 
-/* ─── Responsive breakpoints ──────────────────────────────── */
+/* Responsive breakpoints */
 
-/* Medium — tablets / narrow desktop (hide some labels) */
+/* Medium tablets / narrow desktop (hide some labels) */
 @media (max-width: 960px) {
   .layout-group { display: none; }        /* layout toggle hidden; mobile tabs used */
   .btn-label { display: none; }           /* text labels on Upload / Copy hidden */
@@ -634,7 +634,7 @@ body {
   .preview-doc { padding: 28px 28px; }
 }
 
-/* Small — phones */
+/* Small phones */
 @media (max-width: 640px) {
   :root {
     --header-h:   48px;
@@ -690,7 +690,7 @@ body {
   .theme-badge { display: none; }
 }
 
-/* Tall screens — give preview doc more breathing room */
+/* Tall screens give preview doc more breathing room */
 @media (min-height: 900px) {
   .preview-scroll { padding: 40px 20px; }
   .preview-doc { padding: 48px 56px; }
