@@ -23,7 +23,7 @@ const fileInput     = document.getElementById('file-input');
 const workspace     = document.getElementById('workspace');
 const resizer       = document.getElementById('resizer');
 
-/* Marked renderer setup */
+/* Marked renderer setup*/
 const renderer = new marked.Renderer();
 
 // GFM task-list checkboxes
@@ -41,7 +41,7 @@ renderer.code = (code, lang) => {
 
 marked.use({ renderer, gfm: true, breaks: false, pedantic: false });
 
-/* Utility */
+/* Utility*/
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -124,7 +124,7 @@ editor.addEventListener('keydown', (e) => {
   }
 });
 
-/* Theme ─*/
+/* Theme*/
 function setTheme(t) {
   currentTheme = t;
 
@@ -173,7 +173,7 @@ function setLayout(l) {
   }
 }
 
-/* Mobile tabs */
+/* Mobile tabs*/
 function setMobileTab(tab) {
   currentMobTab = tab;
 
@@ -209,7 +209,7 @@ function onResize() {
 const resizeObserver = new ResizeObserver(onResize);
 resizeObserver.observe(document.body);
 
-/* File upload */
+/* File upload*/
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) loadFile(file);
@@ -224,7 +224,7 @@ function loadFile(file) {
   reader.readAsText(file);
 }
 
-/* Drag & drop */
+/* Drag & drop*/
 
 // Drop zone keyboard access
 dropZone.addEventListener('keydown', (e) => {
@@ -261,7 +261,7 @@ document.addEventListener('drop', (e) => {
   if (file) loadFile(file);
 });
 
-/* Clear ─*/
+/* Clear*/
 function clearEditor() {
   if (hasContent) {
     const confirmed = confirm('Clear all content and start fresh?');
@@ -343,7 +343,7 @@ function wrapTable() {
   render(editor.value);
 }
 
-/* Pane resizer (desktop drag) */
+/* Pane resizer (desktop drag)*/
 let isResizing = false;
 
 resizer.addEventListener('mousedown', () => {
@@ -412,3 +412,785 @@ document.addEventListener('touchend', () => {
   // Start with blank state drop zone visible, no content
   // (no SAMPLE content loaded)
 })();
+
+/*
+  TIPS FEATURE
+*/
+
+/* Tips state */
+let tipsOpen       = false;
+let activeCat      = 'all';
+let tipsRendered   = false;
+
+/* Tips data*/
+const TIPS = [
+
+  /*  FORMATTING  */
+  {
+    id: 'github-alerts',
+    category: 'formatting',
+    title: 'GitHub Alerts (Callouts)',
+    desc: 'Highlight important information using GitHub\'s special blockquote syntax. Renders as coloured callout boxes on GitHub.',
+    snippet:
+`> [!NOTE]
+> Useful information that users should know.
+
+> [!TIP]
+> Helpful advice for doing things better.
+
+> [!IMPORTANT]
+> Key information users need to know.
+
+> [!WARNING]
+> Urgent info that needs immediate attention.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes.`,
+    link: 'https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts'
+  },
+
+  {
+    id: 'keyboard-keys',
+    category: 'formatting',
+    title: 'Keyboard Key Styling',
+    desc: 'Use the HTML <kbd> tag to display keyboard keys and shortcuts in a styled pill. Works inside GitHub markdown.',
+    snippet:
+`Press <kbd>Ctrl</kbd> + <kbd>C</kbd> to copy.
+
+Use <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>
+to open the command palette.`,
+    link: null
+  },
+
+  {
+    id: 'collapsible-sections',
+    category: 'formatting',
+    title: 'Collapsible Sections',
+    desc: 'Use HTML <details> and <summary> to create accordion-style expandable sections. Great for FAQs, long code, or optional content.',
+    snippet:
+`<details>
+<summary>Click to expand</summary>
+
+Content goes here. You can include **markdown**,
+code blocks and even nested lists.
+
+\`\`\`js
+console.log('hello from inside details');
+\`\`\`
+
+</details>`,
+    link: null
+  },
+
+  {
+    id: 'highlight-text',
+    category: 'formatting',
+    title: 'Highlighted Text',
+    desc: 'Use the HTML <mark> tag to add a yellow highlight to text. Useful for drawing attention to specific words.',
+    snippet:
+`This is <mark>highlighted text</mark> using HTML.
+
+You can also combine with **bold**:
+<mark>**important highlighted term**</mark>`,
+    link: null
+  },
+
+  {
+    id: 'superscript-subscript',
+    category: 'formatting',
+    title: 'Superscript & Subscript',
+    desc: 'Use HTML tags for scientific notation, footnote markers, or chemical formulae inline in your text.',
+    snippet:
+`E = mc<sup>2</sup>
+
+H<sub>2</sub>O
+
+Footnote marker<sup>1</sup>
+
+X<sup>n</sup> + Y<sup>n</sup> = Z<sup>n</sup>`,
+    link: null
+  },
+
+  {
+    id: 'strikethrough',
+    category: 'formatting',
+    title: 'Strikethrough Text',
+    desc: 'Mark text as removed or deprecated using GFM strikethrough. Useful for changelogs or showing corrections.',
+    snippet:
+`~~This feature is deprecated.~~
+
+- ~~Old approach~~ → New approach
+- ~~v1 API~~ Use v2 instead`,
+    link: null
+  },
+
+  /*  STRUCTURE  */
+  {
+    id: 'table-of-contents',
+    category: 'structure',
+    title: 'Manual Table of Contents',
+    desc: 'GitHub auto-generates a TOC button, but adding one inline makes it visible everywhere. Links use lowercase heading text with spaces as hyphens.',
+    snippet:
+`## Table of Contents
+
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [License](#license)`,
+    link: null
+  },
+
+  {
+    id: 'footnotes',
+    category: 'structure',
+    title: 'Footnotes',
+    desc: 'Add numbered footnotes that render as superscript links with definitions at the bottom of the page. Supported on GitHub.',
+    snippet:
+`Here is a sentence with a footnote.[^1]
+
+Another sentence with a second reference.[^note]
+
+[^1]: This is the first footnote definition.
+[^note]: Footnotes can also use labels instead of numbers.`,
+    link: 'https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#footnotes'
+  },
+
+  {
+    id: 'reference-links',
+    category: 'structure',
+    title: 'Reference-Style Links',
+    desc: 'Separate URLs from inline text for cleaner reading. Useful when the same link appears multiple times or URLs are very long.',
+    snippet:
+`See the [official documentation][docs] for details.
+Check out [this tutorial][tutorial] to get started.
+The [docs][docs] cover all edge cases.
+
+[docs]: https://example.com/docs
+[tutorial]: https://example.com/tutorial "Optional title"`,
+    link: null
+  },
+
+  {
+    id: 'section-dividers',
+    category: 'structure',
+    title: 'Visual Section Dividers',
+    desc: 'Use horizontal rules to break long documents into clear sections. Three hyphens, asterisks, or underscores all work.',
+    snippet:
+`## Section One
+
+Content here.
+
+---
+
+## Section Two
+
+Content here.
+
+---
+
+## Section Three`,
+    link: null
+  },
+
+  {
+    id: 'nested-lists',
+    category: 'structure',
+    title: 'Nested Lists & Mixed Types',
+    desc: 'Indent with 2–4 spaces to create sub-lists. You can mix ordered and unordered lists at different levels.',
+    snippet:
+`- Item one
+  - Sub-item A
+  - Sub-item B
+    - Deeper level
+- Item two
+  1. Ordered sub-item
+  2. Another ordered
+- Item three
+
+1. First step
+   - Detail about this step
+   - Another detail
+2. Second step
+3. Third step`,
+    link: null
+  },
+
+  /*  GITHUB  */
+  {
+    id: 'mermaid-diagrams',
+    category: 'github',
+    title: 'Mermaid Diagrams',
+    desc: 'Render flowcharts, sequence diagrams, Gantt charts and more directly in GitHub using Mermaid syntax in a fenced code block.',
+    snippet:
+`\`\`\`mermaid
+flowchart TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug]
+    D --> B
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+    Client->>Server: POST /api/login
+    Server-->>Client: 200 OK + token
+    Client->>Server: GET /api/data
+    Server-->>Client: 200 OK + data
+\`\`\``,
+    link: 'https://mermaid.js.org/'
+  },
+
+  {
+    id: 'math-latex',
+    category: 'github',
+    title: 'Math & LaTeX Equations',
+    desc: 'Render mathematical expressions using LaTeX syntax. Use single $ for inline and double $$ for block equations. Supported on GitHub.',
+    snippet:
+`Inline: $E = mc^2$
+
+Block equation:
+
+$$
+\\frac{d}{dx}\\left(\\int_a^x f(t)\\,dt\\right) = f(x)
+$$
+
+$$
+\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}
+$$`,
+    link: 'https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions'
+  },
+
+  {
+    id: 'github-emoji',
+    category: 'github',
+    title: 'Emoji Shortcodes',
+    desc: 'Use GitHub emoji shortcodes to add icons inline. These render on GitHub and many other markdown platforms.',
+    snippet:
+`## Status :rocket:
+
+- :white_check_mark: Feature complete
+- :construction: In progress
+- :bug: Known bug
+- :warning: Needs review
+
+:bulb: **Tip:** Use emoji sparingly for clarity.
+
+:star: :star: :star: :star: :star:`,
+    link: 'https://github.com/ikatyang/emoji-cheat-sheet'
+  },
+
+  {
+    id: 'relative-links',
+    category: 'github',
+    title: 'Relative Links to Files',
+    desc: 'Link to other files in your repo using relative paths. GitHub resolves them correctly whether you\'re on a branch or a tag.',
+    snippet:
+`[Contributing Guide](CONTRIBUTING.md)
+[API Docs](docs/api.md)
+[Config Example](examples/config.yaml)
+[Source Code](src/index.js)
+
+<!-- Link to a specific heading -->
+[Installation steps](README.md#installation)
+
+<!-- Link to a folder -->
+[Tests directory](tests/)`,
+    link: null
+  },
+
+  {
+    id: 'github-auto-refs',
+    category: 'github',
+    title: 'Auto-Linked References',
+    desc: 'GitHub automatically converts issue numbers, PR numbers, commit SHAs and @mentions into links in issue/PR bodies and commit messages.',
+    snippet:
+`Fixes #42
+Closes #17, #18
+
+Related to #100
+
+See also PR #55
+
+Reverts abc1234
+
+Thanks @username for the review.
+
+<!-- These only auto-link on github.com, not in static previews -->`,
+    link: 'https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls'
+  },
+
+  /*  VISUALS  */
+  {
+    id: 'shields-badges',
+    category: 'visuals',
+    title: 'Status Badges (Shields.io)',
+    desc: 'Add dynamic or static badges to show build status, version, license and more. Generate custom ones at shields.io.',
+    snippet:
+`![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-92%25-yellow.svg)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+
+<!-- Clickable badge -->
+[![npm](https://img.shields.io/npm/v/your-package)](https://npmjs.com/package/your-package)`,
+    link: 'https://shields.io'
+  },
+
+  {
+    id: 'centered-image',
+    category: 'visuals',
+    title: 'Centred Images',
+    desc: 'Centre images using an HTML wrapper. Works on GitHub and most markdown renderers that allow inline HTML.',
+    snippet:
+`<div align="center">
+  <img src="https://example.com/logo.png"
+       alt="Project Logo"
+       width="200" />
+</div>
+
+<!-- With a caption -->
+<div align="center">
+  <img src="screenshot.png" alt="App screenshot" width="600" />
+  <br/>
+  <em>The main dashboard view</em>
+</div>`,
+    link: null
+  },
+
+  {
+    id: 'image-with-link',
+    category: 'visuals',
+    title: 'Clickable Images & Badges',
+    desc: 'Wrap an image in a link so clicking it navigates somewhere. Essential for demo GIFs, badge links and hero images.',
+    snippet:
+`<!-- Clickable image -->
+[![Demo](screenshot.png)](https://your-demo-url.com)
+
+<!-- Badge that links somewhere -->
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+<!-- Logo linking to homepage -->
+[![Logo](logo.svg)](https://yourproject.com)`,
+    link: null
+  },
+
+  {
+    id: 'image-sizing',
+    category: 'visuals',
+    title: 'Image Size Control',
+    desc: 'Native markdown image syntax has no size control use HTML img tags with width/height attributes for precise sizing.',
+    snippet:
+`<!-- Percentage width -->
+<img src="screenshot.png" alt="Screenshot" width="80%" />
+
+<!-- Fixed pixel width -->
+<img src="avatar.png" alt="Avatar" width="120" height="120" />
+
+<!-- Responsive with max-width -->
+<img src="diagram.svg" alt="Diagram"
+     style="max-width:100%;height:auto;" />`,
+    link: null
+  },
+
+  {
+    id: 'demo-gif',
+    category: 'visuals',
+    title: 'Demo GIFs & Video Previews',
+    desc: 'Animated GIFs autoplay inline and are the standard way to show a feature demo in a README. Keep them under 10MB.',
+    snippet:
+`<!-- Inline GIF demo -->
+![Feature Demo](demo.gif)
+
+<!-- Centred with caption -->
+<div align="center">
+  <img src="demo.gif" alt="Demo" width="600" />
+  <p><em>Drag and drop to reorder items</em></p>
+</div>
+
+<!-- GitHub supports mp4 via drag-drop in issue editor,
+     which generates a CDN link you can embed as an image -->`,
+    link: null
+  },
+
+  /*  CODE  */
+  {
+    id: 'syntax-highlight-langs',
+    category: 'code',
+    title: 'Syntax Highlighting Language Tags',
+    desc: 'Add a language identifier after the opening ``` to enable syntax highlighting. Common tags that work on GitHub and this previewer.',
+    snippet:
+`\`\`\`javascript
+const greet = name => \`Hello, \${name}!\`;
+\`\`\`
+
+\`\`\`python
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+\`\`\`
+
+\`\`\`bash
+npm install && npm run dev
+\`\`\`
+
+\`\`\`json
+{ "name": "project", "version": "1.0.0" }
+\`\`\`
+
+\`\`\`sql
+SELECT * FROM users WHERE active = true;
+\`\`\`
+
+\`\`\`yaml
+name: CI
+on: [push, pull_request]
+\`\`\``,
+    link: 'https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md'
+  },
+
+  {
+    id: 'diff-blocks',
+    category: 'code',
+    title: 'Diff Code Blocks',
+    desc: 'Use the diff language tag to show additions (+) and removals (-) in a colour-coded block. Great for showing code changes.',
+    snippet:
+`\`\`\`diff
+- const old = "deprecated approach"
++ const newWay = "updated approach"
+
+  function unchanged() {
+-   return false;
++   return true;
+  }
+\`\`\``,
+    link: null
+  },
+
+  {
+    id: 'inline-code-ui',
+    category: 'code',
+    title: 'Inline Code for UI Elements',
+    desc: 'Use inline code backticks for file names, commands, variable names, menu paths and UI element labels for consistency.',
+    snippet:
+`Run \`npm install\` to install dependencies.
+
+Edit the \`config.json\` file in the root directory.
+
+Navigate to \`Settings\` → \`Developer\` → \`Tokens\`.
+
+The \`--force\` flag skips all confirmation prompts.
+
+Set the \`PORT\` environment variable before starting.`,
+    link: null
+  },
+
+  {
+    id: 'shell-output',
+    category: 'code',
+    title: 'Shell Commands & Output',
+    desc: 'Show terminal sessions clearly by separating commands from their output. Use $ or # as a prompt prefix for commands.',
+    snippet:
+`\`\`\`bash
+# Install the package
+npm install my-package
+
+# Run with options
+node index.js --port 3000 --verbose
+\`\`\`
+
+\`\`\`
+$ npm test
+
+> project@1.0.0 test
+> jest --coverage
+
+✓ renders correctly (12ms)
+✓ handles edge cases (5ms)
+
+Tests: 2 passed, 2 total
+\`\`\``,
+    link: null
+  },
+
+  /*  TOOLS  */
+  {
+    id: 'carbon-code-screenshots',
+    category: 'tools',
+    title: 'Carbon Beautiful Code Screenshots',
+    desc: 'Create and share beautiful images of your code. Paste code into Carbon, customise the theme and language, then export as PNG to embed in your README.',
+    snippet:
+`<!-- After generating at carbon.now.sh, embed like this: -->
+
+<div align="center">
+  <img src="carbon.png"
+       alt="Code snippet"
+       width="600" />
+</div>
+
+<!-- Or link directly to a Carbon URL -->
+[![Code](https://carbon.now.sh/badge.svg)](https://carbon.now.sh/?code=your-code-here)`,
+    link: 'https://carbon.now.sh'
+  },
+
+  {
+    id: 'shields-io-tool',
+    category: 'tools',
+    title: 'Shields.io Badge Generator',
+    desc: 'Generate custom static or dynamic badges for your README. Connect to npm, GitHub, PyPI and dozens of other sources.',
+    snippet:
+`<!-- Static badge: shields.io/badge/LABEL-MESSAGE-COLOR -->
+![Custom](https://img.shields.io/badge/Made_with-Love-red)
+
+<!-- Dynamic: pulls real data from npm -->
+![npm downloads](https://img.shields.io/npm/dm/your-package)
+
+<!-- GitHub stars -->
+![Stars](https://img.shields.io/github/stars/user/repo?style=social)
+
+<!-- Latest release -->
+![Release](https://img.shields.io/github/v/release/user/repo)`,
+    link: 'https://shields.io'
+  },
+
+  {
+    id: 'mermaid-live',
+    category: 'tools',
+    title: 'Mermaid Live Diagram Editor',
+    desc: 'A live editor for Mermaid diagrams. Design your flowchart, sequence diagram, or ERD visually, then paste the code into your markdown.',
+    snippet:
+`<!-- Design at mermaid.live, then paste here: -->
+
+\`\`\`mermaid
+erDiagram
+    USER {
+        int id PK
+        string email
+        string name
+    }
+    POST {
+        int id PK
+        string title
+        int userId FK
+    }
+    USER ||--o{ POST : "writes"
+\`\`\``,
+    link: 'https://mermaid.live'
+  },
+
+  {
+    id: 'tables-generator',
+    category: 'tools',
+    title: 'Tables Generator Markdown Tables',
+    desc: 'Building complex markdown tables by hand is tedious. Use Tables Generator to build them visually and paste the output.',
+    snippet:
+`<!-- Paste generated tables like this: -->
+
+| Name       | Type     | Required | Default | Description          |
+|------------|----------|----------|---------|----------------------|
+| \`apiKey\`   | string   | ✅       |       | Your API key         |
+| \`timeout\`  | number   | ❌       | 5000    | Request timeout (ms) |
+| \`retries\`  | number   | ❌       | 3       | Max retry attempts   |
+| \`debug\`    | boolean  | ❌       | false   | Enable debug logging |`,
+    link: 'https://www.tablesgenerator.com/markdown_tables'
+  }
+
+];
+
+/* Open / Close */
+function openTips() {
+  const drawer   = document.getElementById('tips-drawer');
+  const backdrop = document.getElementById('tips-backdrop');
+  const btn      = document.getElementById('tips-toggle-btn');
+
+  tipsOpen = true;
+  drawer.classList.add('open');
+  backdrop.classList.add('visible');
+  btn.classList.add('active');
+
+  // Render tips list on first open
+  if (!tipsRendered) {
+    renderTips();
+    tipsRendered = true;
+  }
+
+  // Focus search input for keyboard users
+  setTimeout(() => {
+    const search = document.getElementById('tips-search');
+    if (search) search.focus();
+  }, 240);
+}
+
+function closeTips() {
+  const drawer   = document.getElementById('tips-drawer');
+  const backdrop = document.getElementById('tips-backdrop');
+  const btn      = document.getElementById('tips-toggle-btn');
+
+  tipsOpen = false;
+  drawer.classList.remove('open');
+  backdrop.classList.remove('visible');
+  btn.classList.remove('active');
+}
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && tipsOpen) closeTips();
+});
+
+/* Category filter*/
+function setCat(cat) {
+  activeCat = cat;
+
+  // Update pill states
+  document.querySelectorAll('.cat-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.cat === cat);
+  });
+
+  // Re-render filtered list
+  renderTips();
+}
+
+/* Search */
+function filterTips() {
+  renderTips();
+}
+
+/* Render tips list */
+function renderTips() {
+  const query  = (document.getElementById('tips-search').value || '').toLowerCase().trim();
+  const list   = document.getElementById('tips-list');
+  const count  = document.getElementById('tips-count');
+
+  const filtered = TIPS.filter(tip => {
+    const matchesCat  = activeCat === 'all' || tip.category === activeCat;
+    const matchesQ    = !query ||
+      tip.title.toLowerCase().includes(query) ||
+      tip.desc.toLowerCase().includes(query) ||
+      tip.snippet.toLowerCase().includes(query) ||
+      tip.category.toLowerCase().includes(query);
+    return matchesCat && matchesQ;
+  });
+
+  count.textContent = filtered.length === TIPS.length
+    ? `${TIPS.length} tips`
+    : `${filtered.length} of ${TIPS.length} tips`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="tips-empty">
+        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="18" cy="18" r="15"/>
+          <path d="M12 18h12M18 12v12"/>
+        </svg>
+        <p>No tips match "<strong>${escapeHtml(query)}</strong>"</p>
+        <span style="font-size:11px;color:var(--text-tertiary)">Try a different search term</span>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(tip => buildTipCard(tip)).join('');
+}
+
+/* Build a single tip card HTML */
+function buildTipCard(tip) {
+  const tagClass = `tip-tag tip-tag-${tip.category}`;
+  const tagLabel = tip.category.charAt(0).toUpperCase() + tip.category.slice(1);
+
+  const snippetEscaped = escapeHtml(tip.snippet);
+  const snippetData    = encodeURIComponent(tip.snippet);
+
+  const linkHtml = tip.link
+    ? `<a class="tip-link" href="${tip.link}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M6 2H3a1 1 0 00-1 1v8a1 1 0 001 1h8a1 1 0 001-1v-3M9 2h3v3M7 7l5-5"/>
+        </svg>
+        Learn more
+      </a>`
+    : '';
+
+  return `
+    <div class="tip-card" role="listitem">
+      <div class="tip-card-top">
+        <div class="tip-card-meta">
+          <div class="tip-title">${escapeHtml(tip.title)}</div>
+          <div class="tip-desc">${escapeHtml(tip.desc)}</div>
+        </div>
+        <span class="${tagClass}">${tagLabel}</span>
+      </div>
+      <div class="tip-snippet">
+        <div class="tip-snippet-bar">
+          <span class="tip-snippet-label">Markdown</span>
+          <div class="tip-snippet-actions">
+            <button class="tip-action-btn"
+              onclick="copyTipSnippet(decodeURIComponent('${snippetData}'), this)"
+              title="Copy snippet to clipboard">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3">
+                <rect x="3" y="3" width="7" height="8" rx="1"/>
+                <path d="M1 9V2a1 1 0 011-1h7"/>
+              </svg>
+              Copy
+            </button>
+            <button class="tip-action-btn insert-btn"
+              onclick="insertTipSnippet(decodeURIComponent('${snippetData}'))"
+              title="Insert snippet at cursor in editor">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3">
+                <path d="M2 6h8M6 2l4 4-4 4"/>
+              </svg>
+              Insert
+            </button>
+          </div>
+        </div>
+        <pre>${snippetEscaped}</pre>
+      </div>
+      ${linkHtml}
+    </div>`;
+}
+
+/* Copy snippet */
+function copyTipSnippet(snippet, btn) {
+  navigator.clipboard.writeText(snippet).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M1.5 6l3 3 6-5.5"/></svg> Copied!`;
+    btn.style.color = '#34d399';
+    btn.style.borderColor = 'rgba(52,211,153,0.4)';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  }).catch(() => {
+    alert('Copy failed try HTTPS or localhost.');
+  });
+}
+
+/* Insert snippet into editor*/
+function insertTipSnippet(snippet) {
+  // Ensure editor is visible
+  if (!hasContent) showEditorDirect();
+
+  const start = editor.selectionStart;
+  const end   = editor.selectionEnd;
+
+  // Add newline padding if cursor is mid-content
+  const before    = editor.value.substring(0, start);
+  const after     = editor.value.substring(end);
+  const needsBefore = before.length > 0 && !before.endsWith('\n\n') ? '\n\n' : '';
+  const needsAfter  = after.length > 0  && !after.startsWith('\n')  ? '\n'   : '';
+
+  const insertion = needsBefore + snippet + needsAfter;
+  editor.value = before + insertion + after;
+
+  // Move cursor to after inserted snippet
+  const newPos = start + insertion.length;
+  editor.selectionStart = editor.selectionEnd = newPos;
+  editor.focus();
+  render(editor.value);
+
+  // On mobile: switch to preview after inserting so user sees result
+  if (isMobileViewport()) {
+    setTimeout(() => setMobileTab('preview'), 120);
+  }
+}

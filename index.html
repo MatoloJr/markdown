@@ -77,7 +77,55 @@
   <button class="action-btn icon-only" onclick="clearEditor()" title="Clear and start fresh">
     <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 3l8 8M11 3L3 11"/></svg>
   </button>
+
+  <div class="header-divider" aria-hidden="true"></div>
+
+  <button class="action-btn tips-btn" id="tips-toggle-btn" onclick="openTips()" title="Markdown tips and techniques">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="6"/><path d="M7 6.5v4M7 4.5v.5"/></svg>
+    <span class="btn-label">Tips</span>
+  </button>
 </header>
+
+<!-- Tips Backdrop -->
+<div class="tips-backdrop" id="tips-backdrop" onclick="closeTips()"></div>
+
+<!-- Tips Drawer-->
+<aside class="tips-drawer" id="tips-drawer" aria-label="Markdown tips and techniques" role="complementary">
+
+  <div class="tips-drawer-header">
+    <div class="tips-drawer-title">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 7.5v4M8 5v.5"/></svg>
+      Tips &amp; Techniques
+    </div>
+    <button class="tips-close-btn" onclick="closeTips()" title="Close tips panel" aria-label="Close tips panel">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l8 8M11 3L3 11"/></svg>
+    </button>
+  </div>
+
+  <div class="tips-search-wrap">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l2.5 2.5"/></svg>
+    <input type="search" id="tips-search" class="tips-search-input"
+      placeholder="Search tips…" autocomplete="off" spellcheck="false"
+      oninput="filterTips()" />
+  </div>
+
+  <div class="tips-cats" id="tips-cats" role="group" aria-label="Filter by category">
+    <button class="cat-pill active" data-cat="all"      onclick="setCat('all')">All</button>
+    <button class="cat-pill" data-cat="formatting"      onclick="setCat('formatting')">Formatting</button>
+    <button class="cat-pill" data-cat="structure"       onclick="setCat('structure')">Structure</button>
+    <button class="cat-pill" data-cat="github"          onclick="setCat('github')">GitHub</button>
+    <button class="cat-pill" data-cat="visuals"         onclick="setCat('visuals')">Visuals</button>
+    <button class="cat-pill" data-cat="code"            onclick="setCat('code')">Code</button>
+    <button class="cat-pill" data-cat="tools"           onclick="setCat('tools')">Tools</button>
+  </div>
+
+  <div class="tips-count" id="tips-count"></div>
+
+  <div class="tips-list" id="tips-list" role="list">
+    <!-- populated by renderTips() -->
+  </div>
+
+</aside>
 
 <!-- Mobile tab bar -->
 <div class="mobile-tabs" id="mobile-tabs">
