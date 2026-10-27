@@ -52,8 +52,8 @@ Everything runs in the browser. There is no server, no build process, no npm ins
 - **Live editing** the preview updates on every keystroke with zero debounce lag
 - **Blank default state** nothing is pre-loaded; the editor only appears once the user actively starts
 - **Copy rendered HTML** copies the fully-rendered inner HTML to the clipboard in one click
-- **Download .md** saves the current editor contents as a markdown file (keeps the original filename)
-- **Download PDF** converts the rendered preview (GitHub or Claude theme) to an A4 PDF and downloads it directly, with no print dialog; falls back to the browser print dialog if PDF generation fails
+- **Download .md** saves the current editor contents as a markdown file. A rename dialog opens first, pre-filled with the document's first line
+- **Download PDF** converts the rendered preview (GitHub or Claude theme) to an A4 PDF, rendered page by page so long documents never come out blank. The same rename dialog appears first; falls back to the browser print dialog if PDF generation fails
 
 ### Render Themes
 - **GitHub README** exact font stack, `#f6f8fa` code blocks, border-bottom headings, zebra-striped tables, `0.25em` left-border blockquotes and link colour matching `github.com`
@@ -306,7 +306,8 @@ All dependencies are loaded from `cdnjs.cloudflare.com` at runtime. No local cop
 | Library | Version | Purpose | CDN URL |
 |---|---|---|---|
 | [marked.js](https://marked.js.org/) | `9.1.6` | GFM markdown → HTML parser | `cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js` |
-| [html2pdf.js](https://github.com/eKoopmans/html2pdf.js) | `0.10.1` | Markdown preview → PDF download (bundles html2canvas + jsPDF) | `cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js` |
+| [html2canvas](https://html2canvas.hertzen.com/) | `1.4.1` | Renders each PDF page to an image | `cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js` |
+| [jsPDF](https://github.com/parallax/jsPDF) | `2.5.1` | Assembles the pages into a PDF | `cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js` |
 | [highlight.js](https://highlightjs.org/) | `11.9.0` | Syntax highlighting for fenced code blocks | `cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js` |
 | highlight.js `github` theme | `11.9.0` | Light syntax colours (GitHub theme) | `.../styles/github.min.css` |
 | highlight.js `github-dark` theme | `11.9.0` | Dark syntax colours (loaded but currently unused) | `.../styles/github-dark.min.css` |
@@ -406,7 +407,7 @@ Change these three values to retheme the entire interactive chrome at once.
 
 Potential features for future iterations:
 
-- [x] **Export to PDF** implemented via html2pdf.js (with a `@media print` fallback)
+- [x] **Export to PDF** implemented via html2canvas + jsPDF (with a `@media print` fallback)
 - [ ] **Shareable URL** base64-encode the markdown into a `#hash` so a preview can be shared via link with no backend
 - [ ] **More themes** Notion, VS Code Preview, Obsidian, npm package page
 - [ ] **Side-by-side diff** paste two `.md` versions and highlight rendering differences

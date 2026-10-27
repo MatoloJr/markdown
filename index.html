@@ -16,8 +16,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme-dark" disabled />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-  <!-- html2pdf.js: client-side PDF generation (bundles html2canvas + jsPDF) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- html2canvas + jsPDF: client-side PDF generation (rendered page by page) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -248,17 +249,34 @@
     </div>
 
     <div class="preview-statusbar">
-      <span id="preview-stat-words"> </span>
+      <span id="preview-stat-words">—</span>
       <span class="stat-sep">·</span>
-      <span id="preview-stat-headings"> </span>
+      <span id="preview-stat-headings">—</span>
       <span class="stat-sep">·</span>
-      <span id="preview-stat-links" class="stat-links-item"> </span>
+      <span id="preview-stat-links" class="stat-links-item">—</span>
       <div class="spacer"></div>
       <span id="preview-stat-theme">GitHub README</span>
     </div>
   </section>
 
 </main>
+
+<!-- Download / rename dialog -->
+<div class="dl-backdrop" id="dl-backdrop" hidden>
+  <div class="dl-modal" role="dialog" aria-modal="true" aria-labelledby="dl-title">
+    <h2 class="dl-title" id="dl-title">Download</h2>
+    <label class="dl-label" for="dl-name">File name</label>
+    <div class="dl-field">
+      <input id="dl-name" type="text" autocomplete="off" spellcheck="false" maxlength="120" />
+      <span class="dl-ext" id="dl-ext">.md</span>
+    </div>
+    <p class="dl-hint">Defaults to the first line of your document. Rename it to anything you like.</p>
+    <div class="dl-actions">
+      <button class="action-btn" id="dl-cancel" type="button">Cancel</button>
+      <button class="action-btn primary" id="dl-confirm" type="button">Download</button>
+    </div>
+  </div>
+</div>
 
 <script src="script.js"></script>
 </body>

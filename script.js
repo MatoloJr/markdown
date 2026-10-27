@@ -307,6 +307,78 @@ function currentFilename() {
   return (document.getElementById('filename-display').textContent || 'untitled.md').trim() || 'untitled.md';
 }
 
+/** Remove characters that are illegal in file names */
+function sanitizeFileName(name) {
+  return name
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[.\s]+|[.\s]+$/g, '')
+    .slice(0, 80)
+    .trim();
+}
+
+/** Default download name: the first meaningful line of the markdown */
+function deriveFileName(md) {
+  const lines = md.split('\n');
+  let inFence = false;
+  for (let raw of lines) {
+    let line = raw.trim();
+    if (/^(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+    if (!line || inFence) continue;
+    if (/^([-*_=]{3,}|<!--.*-->)$/.test(line)) continue;       // rules / html comments
+    line = line
+      .replace(/^#{1,6}\s*/, '')                                // headings
+      .replace(/^>\s*/, '')                                     // blockquote
+      .replace(/^([-*+]|\d+\.)\s+(\[[ xX]\]\s+)?/, '')         // list markers / tasks
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')                // images
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')                 // links
+      .replace(/<[^>]+>/g, '')                                  // html tags
+      .replace(/[*_~`]/g, '');                                  // emphasis / code marks
+    const name = sanitizeFileName(line);
+    if (name) return name;
+  }
+  const loaded = currentFilename().replace(/\.(md|markdown|txt)$/i, '');
+  return sanitizeFileName(loaded) || 'document';
+}
+
+/**
+ * Ask the user for a file name. Resolves with the final name (including the
+ * extension) or null if cancelled.
+ */
+function askFileName(kind, defaultBase) {
+  const ext = '.' + kind;
+  const backdrop = document.getElementById('dl-backdrop');
+  const input    = document.getElementById('dl-name');
+  const okBtn    = document.getElementById('dl-confirm');
+  const cancel   = document.getElementById('dl-cancel');
+  document.getElementById('dl-title').textContent = kind === 'pdf' ? 'Download as PDF' : 'Download Markdown (.md)';
+  document.getElementById('dl-ext').textContent   = ext;
+  input.value = defaultBase;
+  backdrop.hidden = false;
+  setTimeout(() => { input.focus(); input.select(); }, 30);
+
+  return new Promise((resolve) => {
+    const finish = (value) => {
+      backdrop.hidden = true;
+      okBtn.onclick = cancel.onclick = backdrop.onmousedown = input.onkeydown = null;
+      resolve(value);
+    };
+    const confirm = () => {
+      let base = input.value.trim();
+      if (base.toLowerCase().endsWith(ext)) base = base.slice(0, -ext.length);
+      base = sanitizeFileName(base) || sanitizeFileName(defaultBase) || 'document';
+      finish(base + ext);
+    };
+    okBtn.onclick  = confirm;
+    cancel.onclick = () => finish(null);
+    backdrop.onmousedown = (e) => { if (e.target === backdrop) finish(null); };
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); confirm(); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+    };
+  });
+}
+
 /** Trigger a browser download for a Blob */
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -316,7 +388,7 @@ function triggerDownload(blob, filename) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 /** Briefly flip a header button to a confirmation state */
@@ -328,81 +400,192 @@ function flashButton(btn, label) {
 }
 
 /* Download the markdown source (.md) */
-function downloadMarkdown() {
+async function downloadMarkdown() {
   const md = editor.value;
   if (!md.trim()) {
     alert('Nothing to download. Write or upload some markdown first.');
     return;
   }
-  let name = currentFilename();
-  if (!/\.(md|markdown|txt)$/i.test(name)) name += '.md';
+  const name = await askFileName('md', deriveFileName(md));
+  if (!name) return;
   triggerDownload(new Blob([md], { type: 'text/markdown;charset=utf-8' }), name);
   flashButton(document.getElementById('download-md-btn'), 'Saved!');
 }
 
-/* Convert the rendered markdown to PDF and download it */
+/*
+  Convert the rendered markdown to PDF.
+
+  The document is rendered ONE PAGE AT A TIME (each page is its own small
+  canvas) and assembled with jsPDF. Rendering the whole document onto a single
+  canvas silently produces blank pages once it exceeds browser canvas limits,
+  which happens quickly on phones.
+*/
+const PDF = {
+  contentPx: 703,                       // content width in CSS px (A4 minus margins)
+  marginMm:  { top: 14, bottom: 14, left: 12, right: 12 },
+  pageMm:    { w: 210, h: 297 },
+  scale:     2                          // same for every page, so quality is uniform
+};
+PDF.contentMm = PDF.pageMm.w - PDF.marginMm.left - PDF.marginMm.right;               // 186
+PDF.pxPerMm   = PDF.contentPx / PDF.contentMm;
+PDF.pagePx    = Math.floor((PDF.pageMm.h - PDF.marginMm.top - PDF.marginMm.bottom) * PDF.pxPerMm);
+
 let pdfBusy = false;
 
-function downloadPDF() {
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+/** Choose page-break positions that fall between blocks instead of mid-line */
+function computeBreaks(doc, total) {
+  const base  = doc.getBoundingClientRect().top;
+  const nodes = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,table,tr,hr,img'));
+  const byTop = new Map();
+  nodes.forEach(el => {
+    const top = Math.round(el.getBoundingClientRect().top - base);
+    if (top <= 0) return;
+    const isHeading = /^H[1-6]$/.test(el.tagName);
+    byTop.set(top, (byTop.get(top) || false) || isHeading);
+  });
+  const tops = Array.from(byTop.keys()).sort((a, b) => a - b);
+  // a position right after a heading is not allowed (keeps headings with their text)
+  const allowed = tops.filter((t, i) => i === 0 || !byTop.get(tops[i - 1]));
+
+  const breaks = [];
+  let start = 0;
+  while (start < total - 1) {
+    const limit = start + PDF.pagePx;
+    if (limit >= total) { breaks.push(total); break; }
+    let best = null;
+    for (const t of allowed) {
+      if (t > limit) break;
+      if (t > start + PDF.pagePx * 0.35) best = t;
+    }
+    if (best === null) best = limit;      // oversized block: hard cut
+    breaks.push(best);
+    start = best;
+  }
+  return breaks;
+}
+
+async function downloadPDF() {
   const md = editor.value;
   if (!md.trim()) {
     alert('Nothing to convert. Write or upload some markdown first.');
     return;
   }
   if (pdfBusy) return;
-  if (typeof html2pdf === 'undefined') {
-    alert('The PDF library could not be loaded (check your internet connection). Using the print dialog instead. Choose "Save as PDF".');
+
+  const name = await askFileName('pdf', deriveFileName(md));
+  if (!name) return;
+
+  if (typeof html2canvas === 'undefined' || !(window.jspdf && window.jspdf.jsPDF)) {
+    alert('The PDF libraries could not be loaded (check your internet connection). Opening the print dialog instead. Choose "Save as PDF".');
+    const prev = document.title;
+    document.title = name.replace(/\.pdf$/i, '');
     window.print();
+    document.title = prev;
     return;
   }
 
   pdfBusy = true;
-  const btn      = document.getElementById('download-pdf-btn');
-  const origHTML = btn.innerHTML;
+  const btn = document.getElementById('download-pdf-btn');
   btn.disabled = true;
-  btn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" class="spin" aria-hidden="true"><path d="M7 1.5a5.5 5.5 0 105.5 5.5"/></svg><span class="btn-label">Creating PDF…</span>`;
 
-  // Render from an off-screen clone so the result is identical in every
-  // layout mode (even when the preview pane is collapsed) and on mobile.
+  // Progress overlay (also hides the off-screen render surface)
+  const overlay = document.createElement('div');
+  overlay.className = 'pdf-overlay';
+  overlay.innerHTML = '<div class="pdf-overlay-card"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" class="spin"><path d="M7 1.5a5.5 5.5 0 105.5 5.5"/></svg><span id="pdf-progress">Preparing PDF…</span></div>';
   const holder = document.createElement('div');
   holder.className = 'pdf-holder';
-  const clone = previewDoc.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.style.display = 'block';
-  clone.classList.add('pdf-export');
-  holder.appendChild(clone);
   document.body.appendChild(holder);
+  document.body.appendChild(overlay);
+  const progress = overlay.querySelector('#pdf-progress');
 
-  // Keep the canvas inside browser limits for very long documents
-  const height = clone.scrollHeight;
-  const scale  = Math.max(1, Math.min(2, 30000 / Math.max(height, 1)));
+  try {
+    // 1. Measure the document once, at its final PDF width
+    const master = previewDoc.cloneNode(true);
+    master.removeAttribute('id');
+    master.style.display = 'block';
+    master.classList.add('pdf-export');
+    holder.appendChild(master);
 
-  const base = currentFilename().replace(/\.(md|markdown|txt)$/i, '') || 'document';
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await Promise.all(Array.from(master.querySelectorAll('img')).map(img =>
+      img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
+    await nextFrame();
 
-  const opt = {
-    margin:      [14, 12, 14, 12],            // mm: top, left, bottom, right
-    filename:    base + '.pdf',
-    image:       { type: 'jpeg', quality: 0.96 },
-    html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0 },
-    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak:   { mode: ['css', 'legacy'], avoid: ['pre', 'blockquote', 'tr', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
-    enableLinks: true
-  };
+    const mrect  = master.getBoundingClientRect();
+    const total  = Math.ceil(mrect.height);
+    const breaks = computeBreaks(master, total);
 
-  const done = () => {
+    const links = Array.from(master.querySelectorAll('a[href]'))
+      .filter(a => /^(https?:|mailto:)/i.test(a.getAttribute('href')))
+      .flatMap(a => Array.from(a.getClientRects()).map(r => ({
+        url: a.href, x: r.left - mrect.left, y: r.top - mrect.top, w: r.width, h: r.height
+      })));
+
+    holder.removeChild(master);           // keep only one page-sized surface in the DOM
+
+    // 2. Render page by page
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    pdf.setProperties({ title: name.replace(/\.pdf$/i, ''), creator: 'Markdown previewer' });
+
+    let top = 0;
+    for (let i = 0; i < breaks.length; i++) {
+      const bottom = breaks[i];
+      const height = Math.max(1, bottom - top);
+      progress.textContent = `Rendering page ${i + 1} of ${breaks.length}…`;
+      await nextFrame();
+
+      const page = document.createElement('div');
+      page.className = 'pdf-page';
+      page.style.width  = PDF.contentPx + 'px';
+      page.style.height = height + 'px';
+      const inner = master.cloneNode(true);
+      inner.style.position = 'absolute';
+      inner.style.left = '0';
+      inner.style.top  = (-top) + 'px';
+      page.appendChild(inner);
+      holder.appendChild(page);
+
+      const canvas = await html2canvas(page, {
+        scale: PDF.scale, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        scrollX: 0, scrollY: 0, width: PDF.contentPx, height
+      });
+      holder.removeChild(page);
+
+      if (i > 0) pdf.addPage();
+      const hMm = height / PDF.pxPerMm;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG',
+        PDF.marginMm.left, PDF.marginMm.top, PDF.contentMm, hMm, undefined, 'FAST');
+      canvas.width = canvas.height = 0;   // free memory right away
+
+      links.forEach(l => {
+        if (l.y >= top && l.y < bottom) {
+          pdf.link(PDF.marginMm.left + l.x / PDF.pxPerMm, PDF.marginMm.top + (l.y - top) / PDF.pxPerMm,
+                   l.w / PDF.pxPerMm, l.h / PDF.pxPerMm, { url: l.url });
+        }
+      });
+      top = bottom;
+    }
+
+    progress.textContent = 'Saving…';
+    triggerDownload(pdf.output('blob'), name);
+    flashButton(btn, 'Saved!');
+  } catch (err) {
+    console.error('PDF export failed:', err);
+    if (confirm('PDF export failed. Open the print dialog instead? (Choose "Save as PDF")')) {
+      const prev = document.title;
+      document.title = name.replace(/\.pdf$/i, '');
+      window.print();
+      document.title = prev;
+    }
+  } finally {
     holder.remove();
+    overlay.remove();
     btn.disabled = false;
     pdfBusy = false;
-    btn.innerHTML = origHTML;
-  };
-
-  html2pdf().set(opt).from(clone).save()
-    .then(() => { done(); flashButton(btn, 'Saved!'); })
-    .catch((err) => {
-      console.error('PDF export failed:', err);
-      done();
-      if (confirm('PDF export failed. Open the print dialog instead? (Choose "Save as PDF")')) window.print();
-    });
+  }
 }
 
 /* Format helpers */
