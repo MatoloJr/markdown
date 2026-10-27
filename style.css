@@ -1066,3 +1066,53 @@ body {
   .tips-btn .btn-label { display: none; }
   .tips-btn { padding: 5px 8px; }
 }
+
+/* Download buttons / PDF export */
+.action-btn:disabled { opacity: 0.6; cursor: progress; }
+.action-btn .spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+  .header { overflow-x: auto; scrollbar-width: none; }
+  .header::-webkit-scrollbar { display: none; }
+}
+
+/* Off-screen holder used to render the PDF (A4 content width = 186mm ≈ 703px) */
+.pdf-holder {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  width: 703px;
+  pointer-events: none;
+}
+.preview-doc.pdf-export {
+  width: 703px;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: #ffffff;
+  overflow: visible;
+}
+.pdf-export pre { white-space: pre-wrap; word-break: break-word; overflow: visible; }
+.pdf-export code { word-break: break-word; }
+.pdf-export table { width: 100%; }
+.pdf-export img { max-width: 100%; }
+
+/* Print fallback: only the rendered document */
+@media print {
+  @page { margin: 14mm 12mm; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  .header, .tips-drawer, .tips-backdrop, .mobile-tabs, .editor-pane, .resizer,
+  .preview-pane .pane-header, .preview-statusbar, .preview-empty { display: none !important; }
+  .workspace, .preview-pane, .preview-scroll {
+    display: block !important; position: static !important; height: auto !important;
+    overflow: visible !important; padding: 0 !important; width: 100% !important;
+    flex: none !important; opacity: 1 !important; background: #fff !important;
+  }
+  .preview-doc { max-width: none !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: #fff !important; }
+  .preview-doc pre, .preview-doc blockquote, .preview-doc tr, .preview-doc img { break-inside: avoid; }
+  .preview-doc h1, .preview-doc h2, .preview-doc h3, .preview-doc h4 { break-after: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

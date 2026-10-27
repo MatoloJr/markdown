@@ -16,6 +16,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme-dark" disabled />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
+  <!-- html2pdf.js: client-side PDF generation (bundles html2canvas + jsPDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -72,6 +75,16 @@
   <button class="action-btn" id="copy-btn" onclick="copyHTML()" title="Copy rendered HTML">
     <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="4" width="8" height="9" rx="1"/><path d="M2 10V2a1 1 0 011-1h8"/></svg>
     <span class="btn-label">Copy HTML</span>
+  </button>
+
+  <button class="action-btn" id="download-md-btn" onclick="downloadMarkdown()" title="Download the markdown source as a .md file">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 2v7M4 6.5L7 9.5l3-3"/><path d="M2 11v.5a1 1 0 001 1h8a1 1 0 001-1V11"/></svg>
+    <span class="btn-label">Download .md</span>
+  </button>
+
+  <button class="action-btn" id="download-pdf-btn" onclick="downloadPDF()" title="Convert to PDF and download (uses the active theme)">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 1.5h5l3 3V12a.5.5 0 01-.5.5h-7.5a.5.5 0 01-.5-.5V2a.5.5 0 01.5-.5z"/><path d="M8 1.5v3h3M4.5 8h5M4.5 10.2h3"/></svg>
+    <span class="btn-label">Download PDF</span>
   </button>
 
   <button class="action-btn icon-only" onclick="clearEditor()" title="Clear and start fresh">

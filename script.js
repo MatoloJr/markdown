@@ -300,6 +300,111 @@ function copyHTML() {
   });
 }
 
+/* Download helpers */
+
+/** Current filename shown in the editor header, e.g. "README.md" */
+function currentFilename() {
+  return (document.getElementById('filename-display').textContent || 'untitled.md').trim() || 'untitled.md';
+}
+
+/** Trigger a browser download for a Blob */
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Briefly flip a header button to a confirmation state */
+function flashButton(btn, label) {
+  const orig = btn.innerHTML;
+  btn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 7l3 3 7-6"/></svg><span class="btn-label">${label}</span>`;
+  btn.classList.add('copy-flash');
+  setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copy-flash'); }, 2200);
+}
+
+/* Download the markdown source (.md) */
+function downloadMarkdown() {
+  const md = editor.value;
+  if (!md.trim()) {
+    alert('Nothing to download. Write or upload some markdown first.');
+    return;
+  }
+  let name = currentFilename();
+  if (!/\.(md|markdown|txt)$/i.test(name)) name += '.md';
+  triggerDownload(new Blob([md], { type: 'text/markdown;charset=utf-8' }), name);
+  flashButton(document.getElementById('download-md-btn'), 'Saved!');
+}
+
+/* Convert the rendered markdown to PDF and download it */
+let pdfBusy = false;
+
+function downloadPDF() {
+  const md = editor.value;
+  if (!md.trim()) {
+    alert('Nothing to convert. Write or upload some markdown first.');
+    return;
+  }
+  if (pdfBusy) return;
+  if (typeof html2pdf === 'undefined') {
+    alert('The PDF library could not be loaded (check your internet connection). Using the print dialog instead. Choose "Save as PDF".');
+    window.print();
+    return;
+  }
+
+  pdfBusy = true;
+  const btn      = document.getElementById('download-pdf-btn');
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" class="spin" aria-hidden="true"><path d="M7 1.5a5.5 5.5 0 105.5 5.5"/></svg><span class="btn-label">Creating PDF…</span>`;
+
+  // Render from an off-screen clone so the result is identical in every
+  // layout mode (even when the preview pane is collapsed) and on mobile.
+  const holder = document.createElement('div');
+  holder.className = 'pdf-holder';
+  const clone = previewDoc.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.style.display = 'block';
+  clone.classList.add('pdf-export');
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+
+  // Keep the canvas inside browser limits for very long documents
+  const height = clone.scrollHeight;
+  const scale  = Math.max(1, Math.min(2, 30000 / Math.max(height, 1)));
+
+  const base = currentFilename().replace(/\.(md|markdown|txt)$/i, '') || 'document';
+
+  const opt = {
+    margin:      [14, 12, 14, 12],            // mm: top, left, bottom, right
+    filename:    base + '.pdf',
+    image:       { type: 'jpeg', quality: 0.96 },
+    html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0 },
+    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak:   { mode: ['css', 'legacy'], avoid: ['pre', 'blockquote', 'tr', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
+    enableLinks: true
+  };
+
+  const done = () => {
+    holder.remove();
+    btn.disabled = false;
+    pdfBusy = false;
+    btn.innerHTML = origHTML;
+  };
+
+  html2pdf().set(opt).from(clone).save()
+    .then(() => { done(); flashButton(btn, 'Saved!'); })
+    .catch((err) => {
+      console.error('PDF export failed:', err);
+      done();
+      if (confirm('PDF export failed. Open the print dialog instead? (Choose "Save as PDF")')) window.print();
+    });
+}
+
 /* Format helpers */
 function formatSelection(type) {
   if (!hasContent) showEditorDirect();
